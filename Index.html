@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNSSJP PRO - Control Acuícola</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXIeNjqNmCL4QrgoRjC5AV8dgEjoy95Vo",
+            authDomain: "control-5e855.firebaseapp.com",
+            projectId: "control-5e855",
+            storageBucket: "control-5e855.firebasestorage.app",
+            messagingSenderId: "947274462816",
+            appId: "1:947274462816:web:45f6a4709992b4d6f8b505"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Subir data de Excel
+        window.processExcel = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet);
+                
+                for (const row of json) {
+                    await addDoc(collection(db, "registros_agua"), row);
+                }
+                alert("Data histórica subida con éxito");
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // Guardar registro manual
+        window.saveData = async () => {
+            const data = {
+                fecha: document.getElementById('fecha').value,
+                ph: parseFloat(document.getElementById('ph').value),
+                amonio: parseFloat(document.getElementById('amonio').value),
+                nitrito: parseFloat(document.getElementById('nitrito').value),
+                nitrato: parseFloat(document.getElementById('nitrato').value),
+                temp: parseFloat(document.getElementById('temp').value),
+                alcalinidad: parseFloat(document.getElementById('alcalinidad').value)
+            };
+            await addDoc(collection(db, "registros_agua"), data);
+            alert("Registro guardado");
+        };
+    </script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+    <h1 class="text-3xl font-bold mb-6 text-blue-400">Panel de Control: Calidad de Agua</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h2 class="text-xl mb-4">Nuevo Registro</h2>
+            <input type="date" id="fecha" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="ph" placeholder="pH" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="amonio" placeholder="Amonio" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="nitrito" placeholder="Nitrito" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="nitrato" placeholder="Nitrato" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="temp" placeholder="Temp °C" class="w-full p-2 mb-2 bg-gray-700 rounded">
+            <input type="number" id="alcalinidad" placeholder="Alcalinidad" class="w-full p-2 mb-4 bg-gray-700 rounded">
+            <button onclick="saveData()" class="w-full bg-blue-600 p-2 rounded hover:bg-blue-700">Guardar Registro</button>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h2 class="text-xl mb-4">Carga Histórica (Excel)</h2>
+            <input type="file" onchange="processExcel(event)" class="w-full p-4 bg-gray-700 rounded cursor-pointer">
+            <p class="mt-4 text-sm text-gray-400">Asegure que las columnas coincidan con los nombres del formulario.</p>
+        </div>
+    </div>
+</body>
+</html>
