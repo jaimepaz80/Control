@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GNSSJP PRO | Control de Calidad</title>
+    <title>CONTROL | Auditoría Acuícola</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="module">
@@ -20,87 +20,110 @@
         };
 
         const db = getFirestore(initializeApp(firebaseConfig));
-        let dataHistorica = [];
 
-        // GUARDAR MANUAL
+        // GUARDAR REGISTRO
         window.guardarRegistro = async () => {
-            const campos = ['fecha', 'ph', 'amonio', 'nitrito', 'nitrato', 'salinidad', 'temp', 'oxigeno', 'alcalinidad', 'tds'];
-            const datos = {};
-            campos.forEach(c => datos[c] = document.getElementById(c).value);
-            await addDoc(collection(db, "registros_agua"), datos);
-            alert("Registro guardado");
-            location.reload();
-        };
-
-        // CARGAR Y FILTRAR
-        async function cargarDatos() {
-            const q = query(collection(db, "registros_agua"));
-            const snapshot = await getDocs(q);
-            snapshot.forEach(doc => dataHistorica.push(doc.data()));
-            renderTabla(dataHistorica);
-        }
-
-        window.filtrarDatos = () => {
-            const fechaInicio = document.getElementById('fInicio').value;
-            const fechaFin = document.getElementById('fFin').value;
-            const filtro = dataHistorica.filter(d => d.fecha >= fechaInicio && d.fecha <= fechaFin);
-            renderTabla(filtro);
-        };
-
-        function renderTabla(datos) {
-            const tbody = document.getElementById('tablaBody');
-            tbody.innerHTML = datos.map(d => `
-                <tr class="text-sm border-b border-gray-700">
-                    <td class="p-2">${d.fecha}</td><td class="p-2">${d.ph}</td><td class="p-2">${d.amonio}</td>
-                    <td class="p-2">${d.nitrito}</td><td class="p-2">${d.nitrato}</td><td class="p-2">${d.temp}</td>
-                    <td class="p-2">${d.alcalinidad}</td>
-                </tr>`).join('');
-        }
-
-        // CARGA EXCEL
-        window.subirExcel = (e) => {
-            const reader = new FileReader();
-            reader.onload = async (evt) => {
-                const wb = XLSX.read(evt.target.result, {type: 'binary'});
-                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-                for (const row of json) await addDoc(collection(db, "registros_agua"), row);
-                alert("Data histórica cargada");
+            const data = {
+                sistema: document.getElementById('sistema').value,
+                fecha_hora: document.getElementById('fecha_hora').value,
+                ph: document.getElementById('ph').value,
+                amonio: document.getElementById('amonio').value,
+                nitrito: document.getElementById('nitrito').value,
+                nitrato: document.getElementById('nitrato').value,
+                salinidad: document.getElementById('salinidad').value,
+                temp: document.getElementById('temp').value,
+                o2: document.getElementById('o2').value,
+                alcalinidad: document.getElementById('alcalinidad').value,
+                tds: document.getElementById('tds').value,
+                timestamp: new Date().getTime()
             };
-            reader.readAsBinaryString(e.target.files[0]);
+
+            try {
+                await addDoc(collection(db, "registros_control"), data);
+                alert("Dato ingresado con éxito.");
+                location.reload();
+            } catch (e) {
+                alert("Error crítico al guardar: " + e.message);
+            }
         };
 
+        // CARGAR Y RENDERIZAR
+        async function cargarDatos() {
+            const q = query(collection(db, "registros_control"), orderBy("fecha_hora", "desc"));
+            const snapshot = await getDocs(q);
+            const tbody = document.getElementById('tablaBody');
+            
+            snapshot.forEach(doc => {
+                const d = doc.data();
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-700 hover:bg-gray-750 transition">
+                        <td class="p-3 text-xs font-mono">${d.fecha_hora.replace('T', ' ')}</td>
+                        <td class="p-3 font-bold text-blue-400">${d.sistema}</td>
+                        <td class="p-3">${d.ph}</td>
+                        <td class="p-3">${d.amonio}</td>
+                        <td class="p-3">${d.nitrito}</td>
+                        <td class="p-3">${d.temp}°C</td>
+                        <td class="p-3">${d.alcalinidad}</td>
+                    </tr>`;
+            });
+        }
+        
         cargarDatos();
     </script>
 </head>
-<body class="bg-gray-900 text-white p-4">
-    <h1 class="text-2xl font-bold mb-4 text-blue-400">GNSSJP PRO - Auditoría de Agua</h1>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
     
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-800 p-4 rounded mb-4">
-        <input type="date" id="fecha" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="ph" placeholder="pH" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="amonio" placeholder="Amonio" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="nitrito" placeholder="Nitrito" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="nitrato" placeholder="Nitrato" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="salinidad" placeholder="Salinidad" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="temp" placeholder="Temp" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="oxigeno" placeholder="O2" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="alcalinidad" placeholder="Alcalinidad" class="p-1 bg-gray-700 rounded">
-        <input type="number" id="tds" placeholder="TDS" class="p-1 bg-gray-700 rounded">
-        <button onclick="guardarRegistro()" class="col-span-2 md:col-span-5 bg-blue-600 p-2 rounded font-bold">GUARDAR REGISTRO</button>
-    </div>
+    <header class="bg-gray-900 border-b border-blue-900 p-6 shadow-2xl">
+        <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">CONTROL</h1>
+        <p class="text-gray-500 text-sm uppercase tracking-widest">Auditoría Técnica Acuícola</p>
+    </header>
 
-    <div class="bg-gray-800 p-4 rounded mb-4">
-        <input type="date" id="fInicio" class="bg-gray-700 p-1 rounded"> a 
-        <input type="date" id="fFin" class="bg-gray-700 p-1 rounded">
-        <button onclick="filtrarDatos()" class="bg-green-600 px-4 py-1 rounded">Filtrar</button>
-        <input type="file" onchange="subirExcel(event)" class="ml-4 text-sm">
-    </div>
+    <main class="p-4 md:p-8 max-w-6xl mx-auto">
+        <section class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl mb-8">
+            <h2 class="text-xl font-bold mb-6 border-l-4 border-blue-600 pl-3">Ingreso de Parámetros</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <select id="sistema" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full">
+                    <option value="Pre-cría">Pre-cría</option>
+                    <option value="Engorde">Engorde</option>
+                </select>
+                <input type="datetime-local" id="fecha_hora" class="bg-gray-800 p-3 rounded border border-gray-700 col-span-3">
+                
+                <input type="number" id="ph" placeholder="pH" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="amonio" placeholder="Amonio (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="nitrito" placeholder="Nitrito (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="nitrato" placeholder="Nitrato (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="salinidad" placeholder="Salinidad (ppt)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="temp" placeholder="Temp (°C)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="o2" placeholder="O2 (mg/L)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="alcalinidad" placeholder="Alc (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
+                <input type="number" id="tds" placeholder="TDS" class="bg-gray-800 p-3 rounded border border-gray-700 md:col-span-4">
+                
+                <button onclick="guardarRegistro()" class="md:col-span-4 bg-blue-700 hover:bg-blue-600 text-white font-bold py-4 rounded transition shadow-lg">GUARDAR REGISTRO TÉCNICO</button>
+            </div>
+        </section>
 
-    <table class="w-full bg-gray-800 rounded">
-        <thead><tr class="text-blue-300 text-xs text-left">
-            <th class="p-2">Fecha</th><th>pH</th><th>Amonio</th><th>Nitrito</th><th>Nitrato</th><th>Temp</th><th>Alc</th>
-        </tr></thead>
-        <tbody id="tablaBody"></tbody>
-    </table>
+        <section class="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+                <h2 class="text-xl font-bold">Bitácora de Eventos</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-800 text-gray-400 text-xs uppercase">
+                        <tr>
+                            <th class="p-3">Fecha/Hora</th>
+                            <th class="p-3">Sistema</th>
+                            <th class="p-3">pH</th>
+                            <th class="p-3">NH4</th>
+                            <th class="p-3">NO2</th>
+                            <th class="p-3">Temp</th>
+                            <th class="p-3">Alc</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 </body>
 </html>
