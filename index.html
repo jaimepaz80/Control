@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNSSJP PRO | Control de Calidad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXIeNjqNmCL4QrgoRjC5AV8dgEjoy95Vo",
+            authDomain: "control-5e855.firebaseapp.com",
+            projectId: "control-5e855",
+            storageBucket: "control-5e855.firebasestorage.app",
+            messagingSenderId: "947274462816",
+            appId: "1:947274462816:web:45f6a4709992b4d6f8b505"
+        };
+
+        const db = getFirestore(initializeApp(firebaseConfig));
+        let dataHistorica = [];
+
+        // GUARDAR MANUAL
+        window.guardarRegistro = async () => {
+            const campos = ['fecha', 'ph', 'amonio', 'nitrito', 'nitrato', 'salinidad', 'temp', 'oxigeno', 'alcalinidad', 'tds'];
+            const datos = {};
+            campos.forEach(c => datos[c] = document.getElementById(c).value);
+            await addDoc(collection(db, "registros_agua"), datos);
+            alert("Registro guardado");
+            location.reload();
+        };
+
+        // CARGAR Y FILTRAR
+        async function cargarDatos() {
+            const q = query(collection(db, "registros_agua"));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => dataHistorica.push(doc.data()));
+            renderTabla(dataHistorica);
+        }
+
+        window.filtrarDatos = () => {
+            const fechaInicio = document.getElementById('fInicio').value;
+            const fechaFin = document.getElementById('fFin').value;
+            const filtro = dataHistorica.filter(d => d.fecha >= fechaInicio && d.fecha <= fechaFin);
+            renderTabla(filtro);
+        };
+
+        function renderTabla(datos) {
+            const tbody = document.getElementById('tablaBody');
+            tbody.innerHTML = datos.map(d => `
+                <tr class="text-sm border-b border-gray-700">
+                    <td class="p-2">${d.fecha}</td><td class="p-2">${d.ph}</td><td class="p-2">${d.amonio}</td>
+                    <td class="p-2">${d.nitrito}</td><td class="p-2">${d.nitrato}</td><td class="p-2">${d.temp}</td>
+                    <td class="p-2">${d.alcalinidad}</td>
+                </tr>`).join('');
+        }
+
+        // CARGA EXCEL
+        window.subirExcel = (e) => {
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                const wb = XLSX.read(evt.target.result, {type: 'binary'});
+                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                for (const row of json) await addDoc(collection(db, "registros_agua"), row);
+                alert("Data histórica cargada");
+            };
+            reader.readAsBinaryString(e.target.files[0]);
+        };
+
+        cargarDatos();
+    </script>
+</head>
+<body class="bg-gray-900 text-white p-4">
+    <h1 class="text-2xl font-bold mb-4 text-blue-400">GNSSJP PRO - Auditoría de Agua</h1>
+    
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-800 p-4 rounded mb-4">
+        <input type="date" id="fecha" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="ph" placeholder="pH" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="amonio" placeholder="Amonio" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="nitrito" placeholder="Nitrito" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="nitrato" placeholder="Nitrato" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="salinidad" placeholder="Salinidad" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="temp" placeholder="Temp" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="oxigeno" placeholder="O2" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="alcalinidad" placeholder="Alcalinidad" class="p-1 bg-gray-700 rounded">
+        <input type="number" id="tds" placeholder="TDS" class="p-1 bg-gray-700 rounded">
+        <button onclick="guardarRegistro()" class="col-span-2 md:col-span-5 bg-blue-600 p-2 rounded font-bold">GUARDAR REGISTRO</button>
+    </div>
+
+    <div class="bg-gray-800 p-4 rounded mb-4">
+        <input type="date" id="fInicio" class="bg-gray-700 p-1 rounded"> a 
+        <input type="date" id="fFin" class="bg-gray-700 p-1 rounded">
+        <button onclick="filtrarDatos()" class="bg-green-600 px-4 py-1 rounded">Filtrar</button>
+        <input type="file" onchange="subirExcel(event)" class="ml-4 text-sm">
+    </div>
+
+    <table class="w-full bg-gray-800 rounded">
+        <thead><tr class="text-blue-300 text-xs text-left">
+            <th class="p-2">Fecha</th><th>pH</th><th>Amonio</th><th>Nitrito</th><th>Nitrato</th><th>Temp</th><th>Alc</th>
+        </tr></thead>
+        <tbody id="tablaBody"></tbody>
+    </table>
+</body>
+</html>
