@@ -6,10 +6,12 @@
     <title>CONTROL | Auditoría Acuícola</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // Configuración de Firebase proporcionada
         const firebaseConfig = {
             apiKey: "AIzaSyBXIeNjqNmCL4QrgoRjC5AV8dgEjoy95Vo",
             authDomain: "control-5e855.firebaseapp.com",
@@ -19,56 +21,153 @@
             appId: "1:947274462816:web:45f6a4709992b4d6f8b505"
         };
 
-        const db = getFirestore(initializeApp(firebaseConfig));
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Almacenamiento local temporal de los registros para filtrado rápido
+        let todosLosRegistros = [];
 
         // GUARDAR REGISTRO
         window.guardarRegistro = async () => {
+            const fechaHoraInput = document.getElementById('fecha_hora').value;
+            if (!fechaHoraInput) {
+                alert("Por favor, selecciona una Fecha y Hora válida.");
+                return;
+            }
+
             const data = {
                 sistema: document.getElementById('sistema').value,
-                fecha_hora: document.getElementById('fecha_hora').value,
-                ph: document.getElementById('ph').value,
-                amonio: document.getElementById('amonio').value,
-                nitrito: document.getElementById('nitrito').value,
-                nitrato: document.getElementById('nitrato').value,
-                salinidad: document.getElementById('salinidad').value,
-                temp: document.getElementById('temp').value,
-                o2: document.getElementById('o2').value,
-                alcalinidad: document.getElementById('alcalinidad').value,
-                tds: document.getElementById('tds').value,
+                fecha_hora: fechaHoraInput,
+                ph: document.getElementById('ph').value || "-",
+                amonio: document.getElementById('amonio').value || "-",
+                nitrito: document.getElementById('nitrito').value || "-",
+                nitrato: document.getElementById('nitrato').value || "-",
+                salinidad: document.getElementById('salinidad').value || "-",
+                temp: document.getElementById('temp').value || "-",
+                o2: document.getElementById('o2').value || "-",
+                alcalinidad: document.getElementById('alcalinidad').value || "-",
+                tds: document.getElementById('tds').value || "-",
                 timestamp: new Date().getTime()
             };
 
             try {
                 await addDoc(collection(db, "registros_control"), data);
-                alert("Dato ingresado con éxito.");
-                location.reload();
+                alert("Dato ingresado con éxito de forma síncrona.");
+                limpiarFormulario();
+                await cargarDatos();
             } catch (e) {
-                alert("Error crítico al guardar: " + e.message);
+                alert("Error crítico al guardar en Firebase: " + e.message);
             }
         };
 
-        // CARGAR Y RENDERIZAR
+        // LIMPIAR CAMPOS DEL FORMULARIO
+        function limpiarFormulario() {
+            const inputs = document.querySelectorAll('#formularioParametros input[type="number"]');
+            inputs.forEach(input => input.value = "");
+            document.getElementById('tds').value = "";
+        }
+
+        // CARGAR Y RENDERIZAR DATOS CON FILTROS EN PANTALLA
         async function cargarDatos() {
-            const q = query(collection(db, "registros_control"), orderBy("fecha_hora", "desc"));
-            const snapshot = await getDocs(q);
+            try {
+                const q = query(collection(db, "registros_control"), orderBy("fecha_hora", "desc"));
+                const snapshot = await getDocs(q);
+                todosLosRegistros = [];
+                
+                snapshot.forEach(doc => {
+                    todosLosRegistros.push(doc.data());
+                });
+
+                aplicarFiltrosYRenderizar();
+            } catch (error) {
+                console.error("Error al cargar datos desde Firestore: ", error);
+            }
+        }
+
+        // FUNCIÓN PARA RENDERIZAR LA TABLA BASADA EN LOS FILTROS
+        window.aplicarFiltrosYRenderizar = () => {
+            const fechaInicio = document.getElementById('filtro_inicio').value;
+            const fechaFin = document.getElementById('filtro_fin').value;
             const tbody = document.getElementById('tablaBody');
             
-            snapshot.forEach(doc => {
-                const d = doc.data();
+            tbody.innerHTML = "";
+
+            const registrosFiltrados = todosLosRegistros.filter(d => {
+                if (fechaInicio && d.fecha_hora < fechaInicio) return false;
+                if (fechaFin && d.fecha_hora > fechaFin) return false;
+                return true;
+            });
+
+            registrosFiltrados.forEach(d => {
                 tbody.innerHTML += `
-                    <tr class="border-b border-gray-700 hover:bg-gray-750 transition">
-                        <td class="p-3 text-xs font-mono">${d.fecha_hora.replace('T', ' ')}</td>
+                    <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition text-sm">
+                        <td class="p-3 font-mono text-xs text-gray-400 whitespace-nowrap">${d.fecha_hora.replace('T', ' ')}</td>
                         <td class="p-3 font-bold text-blue-400">${d.sistema}</td>
-                        <td class="p-3">${d.ph}</td>
-                        <td class="p-3">${d.amonio}</td>
-                        <td class="p-3">${d.nitrito}</td>
-                        <td class="p-3">${d.temp}°C</td>
-                        <td class="p-3">${d.alcalinidad}</td>
+                        <td class="p-3 text-center">${d.ph}</td>
+                        <td class="p-3 text-center text-emerald-400">${d.amonio}</td>
+                        <td class="p-3 text-center text-amber-400">${d.nitrito}</td>
+                        <td class="p-3 text-center text-orange-400">${d.nitrato}</td>
+                        <td class="p-3 text-center">${d.salinidad}</td>
+                        <td class="p-3 text-center text-cyan-400">${d.temp}°C</td>
+                        <td class="p-3 text-center text-blue-300">${d.o2}</td>
+                        <td class="p-3 text-center text-purple-400">${d.alcalinidad}</td>
+                        <td class="p-3 text-center">${d.tds}</td>
                     </tr>`;
             });
-        }
-        
-        cargarDatos();
+
+            if (registrosFiltrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-gray-500">No se encontraron registros para el rango seleccionado.</td></tr>`;
+            }
+        };
+
+        // EXPORTACIÓN ESTRUCTURADA A EXCEL (SHEETJS)
+        window.descargarExcel = () => {
+            const fechaInicio = document.getElementById('filtro_inicio').value;
+            const fechaFin = document.getElementById('filtro_fin').value;
+
+            const registrosFiltrados = todosLosRegistros.filter(d => {
+                if (fechaInicio && d.fecha_hora < fechaInicio) return false;
+                if (fechaFin && d.fecha_hora > fechaFin) return false;
+                return true;
+            });
+
+            if (registrosFiltrados.length === 0) {
+                alert("No hay datos en el rango seleccionado para exportar.");
+                return;
+            }
+
+            // Mapeo plano y limpio de las columnas requeridas para el reporte Excel
+            const matrizExcel = registrosFiltrados.map(d => ({
+                "Fecha y Hora": d.fecha_hora.replace('T', ' '),
+                "Sistema": d.sistema,
+                "pH": d.ph,
+                "Amonio (ppm)": d.amonio,
+                "Nitrito (ppm)": d.nitrito,
+                "Nitrato (ppm)": d.nitrato,
+                "Salinidad (ppt)": d.salinidad,
+                "Temperatura (°C)": d.temp,
+                "Oxígeno O2 (mg/L)": d.o2,
+                "Alcalinidad (ppm)": d.alcalinidad,
+                "TDS": d.tds
+            }));
+
+            const hoja = XLSX.utils.json_to_sheet(matrizExcel);
+            const libro = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(libro, hoja, "Auditoría Acuícola");
+            
+            // Descarga automática del archivo
+            XLSX.writeFile(libro, `Reporte_Acuicola_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        };
+
+        // Carga inicial automatizada al abrir la app
+        window.addEventListener('DOMContentLoaded', () => {
+            // Inicializar fecha actual por defecto en el formulario
+            const ahora = new Date();
+            ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
+            document.getElementById('fecha_hora').value = ahora.toISOString().slice(0, 16);
+            
+            cargarDatos();
+        });
     </script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
@@ -78,49 +177,72 @@
         <p class="text-gray-500 text-sm uppercase tracking-widest">Auditoría Técnica Acuícola</p>
     </header>
 
-    <main class="p-4 md:p-8 max-w-6xl mx-auto">
-        <section class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl mb-8">
+    <main class="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+        
+        <section id="formularioParametros" class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
             <h2 class="text-xl font-bold mb-6 border-l-4 border-blue-600 pl-3">Ingreso de Parámetros</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <select id="sistema" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full">
+                <select id="sistema" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full focus:outline-none focus:border-blue-500">
                     <option value="Pre-cría">Pre-cría</option>
                     <option value="Engorde">Engorde</option>
                 </select>
-                <input type="datetime-local" id="fecha_hora" class="bg-gray-800 p-3 rounded border border-gray-700 col-span-3">
+                <input type="datetime-local" id="fecha_hora" class="bg-gray-800 p-3 rounded border border-gray-700 col-span-1 md:col-span-3 text-white focus:outline-none focus:border-blue-500">
                 
-                <input type="number" id="ph" placeholder="pH" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="amonio" placeholder="Amonio (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="nitrito" placeholder="Nitrito (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="nitrato" placeholder="Nitrato (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="salinidad" placeholder="Salinidad (ppt)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="temp" placeholder="Temp (°C)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="o2" placeholder="O2 (mg/L)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="alcalinidad" placeholder="Alc (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700">
-                <input type="number" id="tds" placeholder="TDS" class="bg-gray-800 p-3 rounded border border-gray-700 md:col-span-4">
+                <input type="number" step="0.01" id="ph" placeholder="pH" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.01" id="amonio" placeholder="Amonio (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.01" id="nitrito" placeholder="Nitrito (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.01" id="nitrato" placeholder="Nitrato (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.01" id="salinidad" placeholder="Salinidad (ppt)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.1" id="temp" placeholder="Temp (°C)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="0.01" id="o2" placeholder="O2 (mg/L)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="1" id="alcalinidad" placeholder="Alc / Bicarbonato (ppm)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500">
+                <input type="number" step="1" id="tds" placeholder="TDS (Sólidos Disueltos)" class="bg-gray-800 p-3 rounded border border-gray-700 text-white placeholder-gray-500 md:col-span-4">
                 
-                <button onclick="guardarRegistro()" class="md:col-span-4 bg-blue-700 hover:bg-blue-600 text-white font-bold py-4 rounded transition shadow-lg">GUARDAR REGISTRO TÉCNICO</button>
+                <button onclick="guardarRegistro()" class="md:col-span-4 bg-blue-700 hover:bg-blue-600 text-white font-bold py-4 rounded transition shadow-lg tracking-wider">GUARDAR REGISTRO TÉCNICO</button>
+            </div>
+        </section>
+
+        <section class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
+            <h2 class="text-xl font-bold mb-4 border-l-4 border-cyan-500 pl-3">Filtros y Generación de Reportes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="block text-gray-400 text-xs uppercase mb-2">Fecha/Hora Inicio</label>
+                    <input type="datetime-local" id="filtro_inicio" onchange="aplicarFiltrosYRenderizar()" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs uppercase mb-2">Fecha/Hora Fin</label>
+                    <input type="datetime-local" id="filtro_fin" onchange="aplicarFiltrosYRenderizar()" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full focus:outline-none focus:border-cyan-500">
+                </div>
+                <button onclick="descargarExcel()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded transition shadow-md flex items-center justify-center space-x-2">
+                    <span>DESCARGAR REPORTES EXCEL (.XLSX)</span>
+                </button>
             </div>
         </section>
 
         <section class="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
-            <div class="p-6 border-b border-gray-800 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Bitácora de Eventos</h2>
+            <div class="p-6 border-b border-gray-800 bg-gray-850">
+                <h2 class="text-xl font-bold">Bitácora Global de Eventos</h2>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-800 text-gray-400 text-xs uppercase">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-850 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
                         <tr>
-                            <th class="p-3">Fecha/Hora</th>
+                            <th class="p-3 whitespace-nowrap">Fecha / Hora</th>
                             <th class="p-3">Sistema</th>
-                            <th class="p-3">pH</th>
-                            <th class="p-3">NH4</th>
-                            <th class="p-3">NO2</th>
-                            <th class="p-3">Temp</th>
-                            <th class="p-3">Alc</th>
+                            <th class="p-3 text-center">pH</th>
+                            <th class="p-3 text-center">NH4 (Amonio)</th>
+                            <th class="p-3 text-center">NO2 (Nitrito)</th>
+                            <th class="p-3 text-center">NO3 (Nitrato)</th>
+                            <th class="p-3 text-center">Sal (ppt)</th>
+                            <th class="p-3 text-center">Temp</th>
+                            <th class="p-3 text-center">O2 (mg/L)</th>
+                            <th class="p-3 text-center">Alc (ppm)</th>
+                            <th class="p-3 text-center">TDS</th>
                         </tr>
                     </thead>
-                    <tbody id="tablaBody"></tbody>
+                    <tbody id="tablaBody" class="divide-y divide-gray-850 bg-gray-900">
+                        </tbody>
                 </table>
             </div>
         </section>
