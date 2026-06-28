@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CONTROL | Auditoría Acuícola</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
@@ -11,7 +12,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBXIeNjqNmCL4QrgoRjC5AV8dgEjoy95Vo",
             authDomain: "control-5e855.firebaseapp.com",
@@ -24,10 +24,8 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Almacenamiento local temporal
         let todosLosRegistros = [];
 
-        // GUARDAR REGISTRO
         window.guardarRegistro = async () => {
             const fechaHoraInput = document.getElementById('fecha_hora').value;
             if (!fechaHoraInput) {
@@ -60,14 +58,12 @@
             }
         };
 
-        // LIMPIAR CAMPOS DEL FORMULARIO
         function limpiarFormulario() {
             const inputs = document.querySelectorAll('#formularioParametros input[type="number"]');
             inputs.forEach(input => input.value = "");
             document.getElementById('tds').value = "";
         }
 
-        // CARGAR Y RENDERIZAR DATOS EN PANTALLA
         async function cargarDatos() {
             try {
                 const q = query(collection(db, "registros_control"), orderBy("fecha_hora", "desc"));
@@ -84,7 +80,6 @@
             }
         }
 
-        // APLICAR FILTROS EN TABLA
         window.aplicarFiltrosYRenderizar = () => {
             const fechaInicio = document.getElementById('filtro_inicio').value;
             const fechaFin = document.getElementById('filtro_fin').value;
@@ -120,12 +115,10 @@
             }
         };
 
-        // EXPORTACIÓN A EXCEL CON SELECCIÓN DE PARÁMETROS
         window.descargarExcel = () => {
             const fechaInicio = document.getElementById('filtro_inicio').value;
             const fechaFin = document.getElementById('filtro_fin').value;
 
-            // Leer estado de los checkboxes
             const chk_ph = document.getElementById('chk_ph').checked;
             const chk_amonio = document.getElementById('chk_amonio').checked;
             const chk_nitrito = document.getElementById('chk_nitrito').checked;
@@ -147,14 +140,12 @@
                 return;
             }
 
-            // Mapeo dinámico de columnas según selección del usuario
             const matrizExcel = registrosFiltrados.map(d => {
                 let fila = {
                     "Fecha y Hora": d.fecha_hora.replace('T', ' '),
                     "Sistema": d.sistema
                 };
                 
-                // Agregar solo los parámetros seleccionados
                 if (chk_ph) fila["pH"] = d.ph;
                 if (chk_amonio) fila["Amonio (ppm)"] = d.amonio;
                 if (chk_nitrito) fila["Nitrito (ppm)"] = d.nitrito;
@@ -172,7 +163,7 @@
             const libro = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(libro, hoja, "Reporte Filtrado");
             
-            XLSX.writeFile(libro, `Reporte_Personalizado_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            XLSX.writeFile(libro, `Reporte_Acuicola_${new Date().toISOString().slice(0, 10)}.xlsx`);
         };
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -213,7 +204,65 @@
             </div>
         </section>
 
-        <section class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl">
+        <section class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl block w-full">
             <h2 class="text-xl font-bold mb-4 border-l-4 border-cyan-500 pl-3">Filtros y Generación de Reportes</h2>
             
-            <div class="grid grid-cols-1 md
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div class="w-full">
+                    <label class="block text-gray-400 text-xs uppercase mb-2">Fecha/Hora Inicio</label>
+                    <input type="datetime-local" id="filtro_inicio" onchange="aplicarFiltrosYRenderizar()" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full focus:outline-none focus:border-cyan-500">
+                </div>
+                <div class="w-full">
+                    <label class="block text-gray-400 text-xs uppercase mb-2">Fecha/Hora Fin</label>
+                    <input type="datetime-local" id="filtro_fin" onchange="aplicarFiltrosYRenderizar()" class="bg-gray-800 p-3 rounded border border-gray-700 text-white w-full focus:outline-none focus:border-cyan-500">
+                </div>
+                <button onclick="descargarExcel()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded transition shadow-md flex items-center justify-center">
+                    DESCARGAR EXCEL (.XLSX)
+                </button>
+            </div>
+
+            <div class="mt-6 p-4 bg-gray-850 rounded border border-gray-700 block w-full">
+                <label class="block text-gray-300 text-sm font-bold mb-3 border-b border-gray-700 pb-2">Selecciona los parámetros para el reporte Excel:</label>
+                <div class="flex flex-wrap gap-4 text-sm text-gray-400">
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_ph" checked class="w-5 h-5 accent-cyan-500"> <span>pH</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_amonio" checked class="w-5 h-5 accent-cyan-500"> <span>Amonio</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_nitrito" checked class="w-5 h-5 accent-cyan-500"> <span>Nitrito</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_nitrato" checked class="w-5 h-5 accent-cyan-500"> <span>Nitrato</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_salinidad" checked class="w-5 h-5 accent-cyan-500"> <span>Salinidad</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_temp" checked class="w-5 h-5 accent-cyan-500"> <span>Temp</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_o2" checked class="w-5 h-5 accent-cyan-500"> <span>O2</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_alcalinidad" checked class="w-5 h-5 accent-cyan-500"> <span>Alcalinidad</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer hover:text-white"><input type="checkbox" id="chk_tds" checked class="w-5 h-5 accent-cyan-500"> <span>TDS</span></label>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-hidden block w-full">
+            <div class="p-6 border-b border-gray-800 bg-gray-850">
+                <h2 class="text-xl font-bold">Bitácora Global de Eventos</h2>
+            </div>
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse min-w-[800px]">
+                    <thead class="bg-gray-850 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
+                        <tr>
+                            <th class="p-3 whitespace-nowrap">Fecha / Hora</th>
+                            <th class="p-3">Sistema</th>
+                            <th class="p-3 text-center">pH</th>
+                            <th class="p-3 text-center">NH4</th>
+                            <th class="p-3 text-center">NO2</th>
+                            <th class="p-3 text-center">NO3</th>
+                            <th class="p-3 text-center">Sal</th>
+                            <th class="p-3 text-center">Temp</th>
+                            <th class="p-3 text-center">O2</th>
+                            <th class="p-3 text-center">Alc</th>
+                            <th class="p-3 text-center">TDS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaBody" class="divide-y divide-gray-850 bg-gray-900">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
